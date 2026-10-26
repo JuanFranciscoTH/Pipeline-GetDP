@@ -1,0 +1,18 @@
+# Generated when the pipeline runs
+results/
+model.msh
+data.pro
+formulation.pre
+formulation.res
+getdp.log
+__pycache__/
+
+# Environments: only the compressed .zip files go to the repository
+data/*.csv
+
+# geo_gen: heavy input data (see geo_gen/ARCHIVOS_FALTANTES.txt) and outputs
+geo_gen/MB04-26-001.csv
+geo_gen/Bronce.tif
+geo_gen/Avance_04-05-2026.dxf
+geo_gen/output/
+geo_gen/.ipynb_checkpoints/

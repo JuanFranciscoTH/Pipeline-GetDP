@@ -1,0 +1,89 @@
+# =============================================================================
+#  config.yaml -- every setting of the pipeline (the only file to edit).
+#  Lengths in metres, in the local coordinates of the block CSV (the site block,
+#  where the coil sits, is at x = y = 0).  Nothing here needs re-measuring by hand
+#  when the CSV changes: the domain box, the rock surface, the conductivity per
+#  block and the coil height are all derived from the CSV by run.py.
+# =============================================================================
+
+environment:
+  csv: data/bloques_mina_2000_SW_extracted.zip   # block model: x,y,z,material_label,sigma,eps_r,mu_r
+                                                 #   (rock sigma log in z: 1e-1 deep .. 1e-5 top);
+                                                 #   a .csv or a .zip holding one .csv both work
+  rock_label: magnetico          # material_label of the rock blocks (any other label = air)
+
+coil:                            # transmitter: horizontal circular loop on the rock
+  center_xy: [0.0, 0.0]          # loop centre [m]; z is computed (tube resting on the rock)
+  major_radius: 10.0             # loop radius R [m]
+  minor_radius: 0.5              # conductor (tube) radius [m]
+  turns: 10                      # N
+  current: 10.0                  # I [A] (amplitude) -> source N*I ampere-turns
+  frequency: 5000.0              # f [Hz]
+
+mesh:                            # element sizes [m]; finer = more accurate, more RAM
+  coil_size: 0.3                 # on the coil conductor
+  far_size: 80.0                 # largest elements (far from the coil)
+  grading_distance: 200.0        # sizes grow from coil_size to far_size over this distance
+  near_zone:                     # uniform fine zone centred on the coil (near field)
+    shape: sphere                #   sphere | cube
+    size: 36.0                   #   sphere diameter / cube side
+    element_size: 2.0
+  interface:                     # band along the air/rock surface (block steps)
+    element_size: 5.0            #   main RAM knob: tets grow ~ 1/element_size^2
+    radius: 260.0                #   only within this horizontal distance of the coil
+  # near_zone and interface can be removed (delete them or set them to null)
+
+solver:
+  use_wsl: false                 # Windows: run GetDP inside WSL (ignored on Linux)
+  wsl_distro: Ubuntu-24.04       # WSL distribution with GetDP installed (Windows only)
+  getdp: C:/getdp/getdp.exe      # GetDP command: 'getdp' on the PATH (Linux / WSL), or
+                                 #   the full path to getdp.exe (Windows with use_wsl: false)
+
+receiver:                        # RX coil used for the induced voltage and the SNR
+  turns: 90
+  diameter: 0.56                 # [m]
+  quality_factor: 0.75           # measured / ideal induced-voltage ratio
+  input_impedance: 4000.0        # [ohm], only to report the noise in dBm
+
+noise:                           # ambient noise referred to the RX coil
+  calibration_db: -39.0          # a reading of calibration_db on the noise spectrum ...
+  calibration_volts: 9.0e-3      #   ... equals this induced voltage [V]
+  calibration_rms: true          #   calibration_volts is RMS (true) or amplitude (false)
+  level_db: -130.51              #   noise level per spectrum bin [dB/bin], mean
+                                 #   power of the 1-Hz bins with 4.5 <= f < 5.5 kHz,
+                                 #   averaged in linear power over the 3 orientations
+                                 #   (Peldehue)
+  spectrum_bin_hz: 1.0           # bin width of that spectrum [Hz]
+  bandwidth_hz: 1000.0           # detection bandwidth [Hz] (noise grows as sqrt(BW)):
+                                 #   1000 = total noise of the whole 4.5-5.5 kHz band
+
+plots:
+  full_domain: false             # true = cuts and 3D over the whole domain (same as --full)
+  window_half_size: 200.0        # else a cube of +- this size around the coil [m]
+  B_min: 1.0e-13                 # |B| colour scale [T] (log)
+  B_max: 1.0e-5
+  SNR_min_db: -50                # SNR colour scale [dB]
+  SNR_max_db: 120.0
+  SNR_contour_db: 0.0            # SNR contour line drawn on the maps (detection limit)
+
+markers:                         # points where the field is printed (+ results/markers_*.csv)
+  - name: coil_centre
+    xyz: [0.0, 0.0, 8.0]
+  - name: air_50m
+    xyz: [0.0, 0.0, 58.0]
+  - name: rock_100m
+    xyz: [0.0, 0.0, -100.0]
+  - name: rock_500m
+    xyz: [0.0, 0.0, -500.0]
+  - name: side_300m
+    xyz: [300.0, 0.0, 8.0]
+
+curves:                          # straight lines sampled by export_curves.py / view_snr.py
+  n_points: 1200
+  lines:                         # points outside the domain are left empty (NaN)
+    - name: coil_axis            # vertical axis of the coil: air above, rock below
+      p0: [0.0, 0.0, 772.0]
+      p1: [0.0, 0.0, -1192.0]
+    - name: horizontal           # y = 0 at the coil height
+      p0: [-1005.0, 0.0, 8.0]
+      p1: [1005.0, 0.0, 8.0]

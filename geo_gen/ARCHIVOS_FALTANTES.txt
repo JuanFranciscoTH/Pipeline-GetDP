@@ -1,0 +1,28 @@
+ARCHIVOS DE ENTRADA DE geo_gen (no incluidos por su tamaño)
+==========================================================
+
+El notebook Modelo_Bloques.ipynb necesita los tres archivos siguientes. No se
+incluyen en esta carpeta por su tamaño. Antes de ejecutar el notebook hay que
+copiarlos en esta misma carpeta (geo_gen/), con exactamente estos nombres:
+
+  Archivo                     Tamaño      Contenido
+  --------------------------  ----------  ---------------------------------------------
+  MB04-26-001.csv             ~7,8 GB     Modelo de bloques completo de la mina
+                                          (coordenadas mina: EASTING, NORTHING, ELEVATION)
+  Bronce.tif                  ~60 MB      Topografía (DEM), UTM 19S (EPSG:32719)
+  Avance_04-05-2026.dxf       ~164 MB     DXF de la mina, para georreferenciar
+
+Estructura esperada:
+
+  geo_gen/
+  |-- Modelo_Bloques.ipynb
+  |-- aux_funciones.py
+  |-- MB04-26-001.csv          <- copiar
+  |-- Bronce.tif               <- copiar
+  |-- Avance_04-05-2026.dxf    <- copiar
+  `-- output/                  (la crea el notebook; ahí queda el CSV para el simulador)
+
+La pipeline no necesita estos archivos para simular: los entornos ya generados
+están en la carpeta data/. Solo hacen falta para generar un entorno nuevo
+(otro sitio, otro tamaño u otras propiedades). Ver el manual de usuario,
+sección "Obtención del entorno con geo_gen".
