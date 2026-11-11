@@ -8,7 +8,9 @@ Outputs (results/):
   mesh_zoom_coil.png   XZ cut zoomed on the coil
 The cuts always show the whole domain.
 
-Run:  python view_mesh.py  [--interactive]   (--interactive opens rotatable windows)
+Run:  python view_mesh.py  [--interactive]
+  --interactive: after saving each PNG, opens the same view in a window you can
+  rotate / zoom (mouse); close it (q or the window's X) to get the next view.
 """
 from __future__ import annotations
 
@@ -57,18 +59,27 @@ def part(grid, cat):
     return grid.threshold([cat - 0.5, cat + 0.5], scalars="category")
 
 
-def shot(p, name):
+def shot(draw, name, window_size):
+    """Save results/<name> from an off-screen plotter filled by draw(plotter); with
+    --interactive, draw the same scene again in a window and wait until it is closed.
+    (pyvista cannot grab an on-screen window before show(), so the PNG and the
+    window use separate plotters.)"""
     out = os.path.join(common.RESULTS, name)
+    p = pv.Plotter(off_screen=True, window_size=window_size)
+    draw(p)
     for k in range(5):                          # off-screen grabs can fail once in a while
         try:
             p.render(); p.screenshot(out); break
         except OSError:
             if k == 4:
                 raise
+    p.close()
     print("saved", out)
     if INTERACTIVE:
+        print("  window open: rotate / zoom with the mouse, q closes it")
+        p = pv.Plotter(window_size=window_size, title=name)
+        draw(p)
         p.show()
-    p.close()
 
 
 def slice_view(grid, normal, center, name, title, zoom_box=None):
@@ -76,19 +87,25 @@ def slice_view(grid, normal, center, name, title, zoom_box=None):
     sl = src.slice(normal=normal, origin=center)
     if not sl.n_cells:
         return
-    p = pv.Plotter(off_screen=not INTERACTIVE, window_size=(1100, 950))
-    p.add_mesh(sl, scalars="category", cmap=ListedColormap(COLORS), clim=[-0.5, 2.5],
-               show_edges=True, edge_color="gray", line_width=0.3,
-               annotations={float(i): n for i, n in enumerate(NAMES)},
-               scalar_bar_args={"title": "", "n_labels": 0})
-    p.add_text(title, font_size=9)
-    p.show_axes()
-    p.show_bounds(location="outer", xtitle="x [m]", ytitle="y [m]", ztitle="z [m]",
-                  font_size=10, color="dimgray")
-    # XZ cut seen from -y so that x grows to the right (as in the field maps)
-    p.view_vector({"x": (1, 0, 0), "y": (0, -1, 0), "z": (0, 0, 1)}[normal])
-    p.camera.zoom(1.2 if zoom_box is None else 1.3)
-    shot(p, name)
+
+    def draw(p):
+        p.add_mesh(sl, scalars="category", cmap=ListedColormap(COLORS), clim=[-0.5, 2.5],
+                   show_edges=True, edge_color="gray", line_width=0.3,
+                   annotations={float(i): n for i, n in enumerate(NAMES)},
+                   scalar_bar_args={"title": "", "n_labels": 0, "vertical": True,
+                                    "position_x": 0.9, "position_y": 0.35,
+                                    "width": 0.03, "height": 0.3})    # right edge, clear of the axes
+        p.scalar_bar.SetTextPositionToPrecedeScalarBar()   # -> the names go right of the bar
+        p.add_text(title, font_size=9)
+        p.show_axes()
+        p.show_bounds(location="outer", xtitle="x [m]", ytitle="y [m]", ztitle="z [m]",
+                      font_size=10, color="dimgray")
+        # oriented as the field maps: XY with x right / y up, YZ with y right / z up,
+        # XZ seen from -y so that x grows to the right
+        p.view_vector({"x": (1, 0, 0), "y": (0, -1, 0), "z": (0, 0, 1)}[normal],
+                      viewup=(0, 1, 0) if normal == "z" else (0, 0, 1))
+        p.camera.zoom(1.15 if zoom_box is None else 1.25)
+    shot(draw, name, (1100, 950))
 
 
 def main():
@@ -101,18 +118,20 @@ def main():
     print(f"model.msh: {grid.n_points:,} nodes, {grid.n_cells:,} tets "
           f"(air {counts[0]:,}, coil {counts[1]:,}, rock {counts[2]:,})")
 
-    p = pv.Plotter(off_screen=not INTERACTIVE, window_size=(1300, 1000))
-    for cat, opacity in ((AIR, 0.12), (ROCK, 0.55), (COIL, 1.0)):
-        body = part(grid, cat)
-        if body.n_cells:
-            p.add_mesh(body, color=COLORS[cat], opacity=opacity, label=NAMES[cat])
-    p.add_legend(bcolor="white", size=(0.16, 0.12), loc="upper right")
-    p.add_text("Solve mesh: air (light blue), rock (brown), coil (copper)", font_size=10)
-    p.show_axes()
-    p.show_bounds(location="outer", xtitle="x [m]", ytitle="y [m]", ztitle="z [m]",
-                  font_size=11, color="dimgray")
-    p.camera_position = "iso"; p.reset_camera(); p.camera.zoom(common.ZOOM_3D)
-    shot(p, "mesh_3d.png")
+    bodies = [(cat, opacity, part(grid, cat)) for cat, opacity in
+              ((AIR, 0.12), (ROCK, 0.55), (COIL, 1.0))]
+
+    def draw_3d(p):
+        for cat, opacity, body in bodies:
+            if body.n_cells:
+                p.add_mesh(body, color=COLORS[cat], opacity=opacity, label=NAMES[cat])
+        p.add_legend(bcolor="white", size=(0.16, 0.12), loc="upper right")
+        p.add_text("Solve mesh: air (light blue), rock (brown), coil (copper)", font_size=10)
+        p.show_axes()
+        p.show_bounds(location="outer", xtitle="x [m]", ytitle="y [m]", ztitle="z [m]",
+                      font_size=11, color="dimgray")
+        p.camera_position = "iso"; p.reset_camera(); p.camera.zoom(common.ZOOM_3D)
+    shot(draw_3d, "mesh_3d.png", (1300, 1000))
 
     slice_view(grid, "z", c, "mesh_cut_XY.png", f"XY cut at z = {c[2]:g} (coil plane)")
     slice_view(grid, "x", c, "mesh_cut_YZ.png", f"YZ cut at x = {c[0]:g}")
